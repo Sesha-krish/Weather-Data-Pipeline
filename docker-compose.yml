@@ -1,0 +1,70 @@
+version: '3.8'
+services:
+  spark-master:
+    image: bitnami/spark:3.5.0
+    environment:
+    - SPARK_MODE=master
+    - SPARK_LOCAL_DIRS=/tmp
+    - SPARK_USER=root
+    volumes:
+    - ./spark_jobs:/opt/spark_jobs
+    ports:
+    - "7077:7077"
+    - "8080:8080"
+
+  spark-worker:
+    image: bitnami/spark:3.5.0
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_LOCAL_DIRS=/tmp
+      - SPARK_USER=root
+    volumes:
+      - ./spark_jobs:/opt/spark_jobs
+    depends_on:
+      - spark-master
+    ports:
+      - "8081:8081"
+
+
+  jupyter:
+    image: jupyter/pyspark-notebook
+    container_name: jupyter
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    volumes:
+      - ./spark_jobs:/home/jovyan/spark_jobs
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - "9000:9000"   # S3 endpoint
+      - "9001:9001"   # Console UI
+    volumes:
+      - ./minio-data:/data

@@ -1,0 +1,4 @@
+kafka-python
+apache-pyspark
+minio
+airflow
